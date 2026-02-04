@@ -1,3 +1,4 @@
+const koffi = require("koffi");
 const { app, BrowserWindow } = require("electron");
 const path = require("path");
 
@@ -14,6 +15,28 @@ function createWindow() {
     },
     backgroundColor: "#000000",
   });
+
+  const { ipcMain } = require("electron");
+
+  ipcMain.handle(
+    "dll-call",
+    (event, { path: dllPath, funName, returnType, paramsType, params }) => {
+      const dllPathLocal = path.join(
+        isDev ? __dirname : process.resourcesPath,
+        isDev ? ".." : "",
+        "testdll",
+        dllPath
+      );
+
+      try {
+        const dll = koffi.load(dllPathLocal);
+        const DoSomething = dll.func(funName, returnType, paramsType);
+        return { path: dllPathLocal, result: DoSomething(...params) };
+      } catch (error) {
+        return { path: dllPathLocal, error: error.message };
+      }
+    }
+  );
 
   if (isDev) {
     mainWindow.webContents.openDevTools();

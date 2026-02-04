@@ -1,20 +1,27 @@
 const { app, BrowserWindow } = require("electron");
 const path = require("path");
 
+const isDev = !app.isPackaged;
+
+let mainWindow;
+
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 900,
-    height: 700,
+    height: 680,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
     },
+    backgroundColor: "#000000",
   });
 
-  // В dev-режиме CRA работает на 3000 порту
-  if (!app.isPackaged) {
-    win.loadURL("http://localhost:3000");
+  if (isDev) {
+    mainWindow.webContents.openDevTools();
+    mainWindow.loadURL("http://localhost:3000");
   } else {
-    win.loadFile(path.join(__dirname, "../build/index.html"));
+    const indexPath = path.join(process.resourcesPath, "build/index.html");
+
+    mainWindow.loadFile(indexPath);
   }
 }
 

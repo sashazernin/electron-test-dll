@@ -13,6 +13,7 @@
     "@types/node": "^16.18.126",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
+    "electron-is-dev": "^3.0.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-scripts": "5.0.1",
@@ -33,11 +34,26 @@
     "directories": {
       "output": "release"
     },
+    "extends": null,
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build",
+        "to": "build",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "win": {
       "target": "nsis"
     }
   },
   "main": "electron/main.js",
+  "homepage": "./",
   "eslintConfig": {
     "extends": [
       "react-app",
@@ -57,6 +73,7 @@
     ]
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "electron": "^40.1.0",
     "electron-builder": "^26.7.0"
   }

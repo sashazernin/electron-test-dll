@@ -1,6 +1,7 @@
 const koffi = require("koffi");
 const { app, BrowserWindow } = require("electron");
 const path = require("path");
+const winax = require("winax");
 
 const isDev = !app.isPackaged;
 
@@ -25,7 +26,7 @@ function createWindow() {
         isDev ? __dirname : process.resourcesPath,
         isDev ? ".." : "",
         "testdll",
-        dllPath
+        dllPath,
       );
 
       try {
@@ -35,8 +36,25 @@ function createWindow() {
       } catch (error) {
         return { path: dllPathLocal, error: error.message };
       }
-    }
+    },
   );
+
+  ipcMain.handle("dll-call-com", (event, props) => {
+    const { source, funName, params } = props;
+    try {
+      const fso = new winax.Object(source);
+
+      if (!fso || !fso[`${funName}`]) {
+        return { error: "Function not found" };
+      }
+
+      const result = fso[`${funName}`](...params);
+
+      return { result };
+    } catch (error) {
+      return { error: error.message };
+    }
+  });
 
   if (isDev) {
     mainWindow.webContents.openDevTools();

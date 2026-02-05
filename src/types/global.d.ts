@@ -4,6 +4,7 @@ export { };
 export interface ApiInterface {
   ping: () => string;
   callDll: (value: { path: string, funName: string, returnType: string, paramsType: string[], params: any[] }) => Promise<number>;
+  callDllCom: (value: { path: string, funName: string, params: any[] }) => Promise<any>;
 }
 
 declare global {

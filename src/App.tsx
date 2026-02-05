@@ -30,7 +30,7 @@ function App() {
     params: [2]
   });
 
-  const [result, setResult] = useState<number | undefined>(0);
+  const [result, setResult] = useState<number | undefined | string>(0);
   const [path, setPath] = useState<string | undefined>(undefined);
   const [resultCom, setResultCom] = useState<any | undefined>(undefined);
 
@@ -40,20 +40,18 @@ function App() {
       setResult(result.result);
       setPath(result.path);
     } else {
-      setResult(undefined);
+      setResult('error:' + result.error);
       setPath(undefined);
-      alert('path:' + result.path + '\nerror:' + result.error);
+      console.log('path:' + result.path + '\nerror:' + result.error);
     }
   };
 
   const handleRunDllCom = async () => {
-    console.log({ ...valueCom, params: valueCom.params.map(param => Number(param)) })
     const result = await window.api.callDllCom({ ...valueCom, params: valueCom.params.map(param => Number(param)) })
     if ('result' in result) {
       setResultCom(result.result);
     } else {
-      setResultCom(undefined);
-      alert('error:' + result.error);
+      setResultCom('error:' + result.error);
     }
   };
 
@@ -102,7 +100,7 @@ function App() {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '250px' }}>
-          <h1>Call dll com</h1>
+          <h1>Call dll com server</h1>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}>
             <div>source: {valueCom.source}</div>
             <div>funName: {valueCom.funName}</div>
@@ -110,18 +108,18 @@ function App() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             source:
-            <input type="text" placeholder='funName' value={valueCom.funName} onChange={(e) => handleChangeCom('source', e.target.value)} />
+            <input type="text" placeholder='funName' value={valueCom.source} onChange={(e) => handleChangeCom('source', e.target.value)} />
             function:
             <input type="text" placeholder='funName' value={valueCom.funName} onChange={(e) => handleChangeCom('funName', e.target.value)} />
             first param:
-            <input type="text" placeholder='params1' value={valueCom.params[0]} onChange={(e) => handleChangeCom('params', [e.target.value, valueCom.params[1]])} />
+            <input type="text" placeholder='params1' value={valueCom.params[0]} onChange={(e) => handleChangeCom('params', valueCom.params[1] ? [e.target.value, valueCom.params[1]] : [e.target.value])} />
             second param:
-            <input type="text" placeholder='params2' value={valueCom.params[1]} onChange={(e) => handleChangeCom('params', [valueCom.params[0], e.target.value])} />
+            <input type="text" placeholder='params2' value={valueCom.params[1]} onChange={(e) => handleChangeCom('params', valueCom.params[0] ? [valueCom.params[0], e.target.value] : [e.target.value])} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <button style={{ width: '100%', height: '50px' }} onClick={handleRunDllCom}>run dll com</button>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5px' }}>Result: <span style={{ color: 'green' }}>{resultCom}</span></div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5px' }}>Result: <span style={{ color: resultCom?.startsWith('error:') ? 'red' : 'green' }}>{resultCom}</span></div>
             </div>
           </div>
         </div>

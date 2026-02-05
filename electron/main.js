@@ -48,11 +48,28 @@ function createWindow() {
         return { error: "Function not found" };
       }
 
-      const result = fso[`${funName}`](...params);
+      let result = fso[`${funName}`](...params);
 
-      return { result };
+      // Любые COM-объекты принудительно приводим к строке
+      if (result && typeof result === "object") {
+        // Для FileSystemObject.GetSpecialFolder сначала пробуем взять путь
+        if (result.Path && typeof result.Path === "string") {
+          result = result.Path;
+        } else if (result.Path && typeof result.Path.toString === "function") {
+          result = result.Path.toString();
+        } else if (typeof result.toString === "function") {
+          result = result.toString();
+        } else {
+          // На крайний случай – просто помечаем как [object]
+          result = "[object COM]";
+        }
+      }
+
+      // Гарантируем, что обратно в рендер уходит только примитив
+      return { result: typeof result === "string" ? result : String(result) };
     } catch (error) {
-      return { error: error.message };
+      // В ошибке наружу отправляем только строку
+      return { error: String(error && error.message ? error.message : error) };
     }
   });
 

@@ -2,10 +2,84 @@ const koffi = require("koffi");
 const { app, BrowserWindow } = require("electron");
 const path = require("path");
 const winax = require("winax");
+const { fork } = require("child_process");
 
 const isDev = !app.isPackaged;
 
 let mainWindow;
+let comWorker = null;
+let comRequestId = 1;
+const comPending = new Map();
+
+function ensureComWorker() {
+  if (comWorker && !comWorker.killed) {
+    return;
+  }
+
+  const workerPath = path.join(__dirname, "com-worker.js");
+  comWorker = fork(workerPath);
+
+  comWorker.on("message", (msg) => {
+    if (!msg) return;
+
+    // Ответ на запрос
+    if (msg.replyTo) {
+      const pending = comPending.get(msg.replyTo);
+      if (!pending) {
+        return;
+      }
+      comPending.delete(msg.replyTo);
+
+      if (msg.error) {
+        pending.resolve({ error: msg.error });
+      } else {
+        pending.resolve(msg.result || { ok: true });
+      }
+      return;
+    }
+
+    // Событие от COM
+    if (msg.type === "com-event" && mainWindow) {
+      mainWindow.webContents.send("com-event", {
+        instanceId: msg.instanceId,
+        eventName: msg.eventName,
+        args: msg.args,
+      });
+    }
+  });
+
+  comWorker.on("exit", () => {
+    comWorker = null;
+  });
+}
+
+function sendComCommand(type, payload) {
+  return new Promise((resolve) => {
+    ensureComWorker();
+
+    if (!comWorker) {
+      resolve({ error: "COM worker not started" });
+      return;
+    }
+
+    const requestId = comRequestId++;
+    comPending.set(requestId, { resolve });
+
+    comWorker.send({
+      requestId,
+      type,
+      payload,
+    });
+
+    // Простейший таймаут, чтобы не зависать навсегда
+    setTimeout(() => {
+      if (comPending.has(requestId)) {
+        comPending.delete(requestId);
+        resolve({ error: "COM worker timeout" });
+      }
+    }, 5000);
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -71,6 +145,30 @@ function createWindow() {
       // В ошибке наружу отправляем только строку
       return { error: String(error && error.message ? error.message : error) };
     }
+  });
+
+  ipcMain.handle("connect-com", async (_event, req) => {
+    const { source, eventName, instanceId } = req;
+
+    console.log("connect-com request", source, eventName, instanceId);
+
+    const result = await sendComCommand("connect-com", {
+      source,
+      eventName,
+      instanceId,
+    });
+
+    return result;
+  });
+
+  ipcMain.handle("disconnect-com", async (_event, req) => {
+    const { instanceId } = req || {};
+
+    const result = await sendComCommand("disconnect-com", {
+      instanceId,
+    });
+
+    return result;
   });
 
   if (isDev) {

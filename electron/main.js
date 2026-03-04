@@ -3,6 +3,7 @@ const { app, BrowserWindow } = require("electron");
 const path = require("path");
 const winax = require("winax");
 const { fork } = require("child_process");
+const { SerialPort } = require("serialport");
 
 const isDev = !app.isPackaged;
 
@@ -10,6 +11,7 @@ let mainWindow;
 let comWorker = null;
 let comRequestId = 1;
 const comPending = new Map();
+const connectedPorts = new Map();
 
 function ensureComWorker() {
   if (comWorker && !comWorker.killed) {
@@ -150,8 +152,6 @@ function createWindow() {
   ipcMain.handle("connect-com", async (_event, req) => {
     const { source, eventName, instanceId } = req;
 
-    console.log("connect-com request", source, eventName, instanceId);
-
     const result = await sendComCommand("connect-com", {
       source,
       eventName,
@@ -169,6 +169,92 @@ function createWindow() {
     });
 
     return result;
+  });
+
+  ipcMain.handle("connect-com-port", async (_event, req) => {
+    try {
+      const {
+        path,
+        baudRate,
+        dataBits,
+        stopBits,
+        parity, // варианты: none, even, odd, mark, space,
+      } = req;
+
+      const port = new SerialPort({
+        path,
+        baudRate,
+        dataBits,
+        stopBits,
+        parity,
+        autoOpen: false,
+      });
+
+      await new Promise((resolve, reject) => {
+        port.open((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      if (connectedPorts[path]) {
+        return { error: "Port already connected" };
+      }
+
+      port.on("data", (chunk) => {
+        mainWindow.webContents.send(`com-port-event`, { path, data: chunk });
+      });
+
+      connectedPorts[path] = port;
+
+      return { result: true };
+    } catch (error) {
+      return { error: error.message };
+    }
+  });
+
+  ipcMain.handle("send-message-com-port", async (_event, req) => {
+    try {
+      const { path, message } = req || {};
+
+      if (!connectedPorts[path]) {
+        return { error: "Port not connected" };
+      }
+
+      const request = Buffer.from([
+        0x01, // slave id
+        0x03, // function code (read holding registers)
+        0x00,
+        0x00, // start address
+        0x00,
+        0x01, // number of registers
+        0x84,
+        0x0a, // CRC16
+      ]);
+
+      connectedPorts[path].write(request);
+
+      return { result: true };
+    } catch (error) {
+      return { error: error.message };
+    }
+  });
+
+  ipcMain.handle("disconnect-com-port", async (_event, req) => {
+    try {
+      const { path } = req || {};
+
+      if (!connectedPorts[path]) {
+        return { error: "Port not connected" };
+      }
+
+      connectedPorts[path].close();
+      delete connectedPorts[path];
+
+      return { result: true };
+    } catch (error) {
+      return { error: error.message };
+    }
   });
 
   if (isDev) {

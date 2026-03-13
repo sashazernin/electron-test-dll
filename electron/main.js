@@ -106,6 +106,39 @@ function createWindow() {
       );
 
       try {
+        if (dllPath === 'eBridge') {
+          process.env.EBRIDGE_ERRENCODING = 'UTF8';
+          const lib = koffi.load('C:/eBridge/eBridgeLauncher64.dll');
+          
+          const PerformCardOperation = lib.func('__stdcall', 'PerformCardOperation', 'void', ['string', 'void **']);
+          
+          let outPtrBuffer = Buffer.alloc(8); 
+          
+          const xsml = "<PerformCardOperation><OperationDataRq><OperationType>Sale</OperationType><Amount>200</Amount><Currency></Currency></OperationDataRq></PerformCardOperation>"
+          
+          PerformCardOperation(xsml, outPtrBuffer);
+          
+          const rawAddr = outPtrBuffer.readBigUInt64LE(0);
+          
+          if (rawAddr !== 0n) {         
+            try{
+              const resultXml = koffi.decode(outPtrBuffer, 'string');
+              return { path: "-", result: resultXml };
+            } catch(err){
+              throw new Error('Out parse error: ' + err)
+            } finally{
+              const kernel32 = koffi.load('kernel32.dll');
+              const LocalFree = kernel32.func('__stdcall', 'LocalFree', 'void *', ['void *']);
+              const result = LocalFree(rawAddr);
+              
+              if(result !== null){
+                console.error('Ошибка освобождения памяти: ', result)
+              }
+            }              
+          }else{
+            return { path: '-', error: 'result path is null' };
+          }
+        }
         const dll = koffi.load(dllPathLocal);
         const DoSomething = dll.func(funName, returnType, paramsType);
         return { path: dllPathLocal, result: DoSomething(...params) };

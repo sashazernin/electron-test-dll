@@ -107,41 +107,54 @@ function createWindow() {
 
       try {
         if (dllPath === 'eBridge') {
-          const lib = koffi.load('C:/eBridge/eBridgeLauncher64.dll');
+          const lib = koffi.load("C:/eBridge/eBridgeLauncher64.dll");
 
-          const PerformCardOperation = lib.func('__stdcall', 'PerformCardOperation', 'void', ['string', 'void **']);
+          const PerformCardOperation = lib.func(
+            "__stdcall",
+            "PerformCardOperation",
+            "void",
+            ["string", "void **"],
+          );
 
           const outPtrBuffer = Buffer.alloc(8);
 
-          const xml = "<PerformCardOperation><OperationDataRq><OperationType>Sale</OperationType><Amount>200</Amount><Currency></Currency></OperationDataRq></PerformCardOperation>"
+          const xml =
+            "<PerformCardOperation><OperationDataRq><OperationType>Sale</OperationType><Amount>200</Amount><Currency></Currency></OperationDataRq></PerformCardOperation>";
 
           PerformCardOperation(xml, outPtrBuffer);
 
-          const rawAddr = outPtrBuffer.readBigUInt64LE(0);
+          const ptrAddres = koffi.decode(outPtrBuffer, "uint8_t *");
 
-          if (rawAddr === 0n) {
-            return { path: '-', error: 'result path is null' };
+          if (!ptrAddres) {
+            return { path: "-", error: "result path is null" };
           }
 
           try {
-            const ptr = koffi.decode(outPtrBuffer, 'void *')
-            const rawBytes = koffi.decode(ptr, 'uint8_t', 4096);
+            const rawBytes = koffi.decode(ptrAddres, "uint8_t", 4096);
 
             const nullIndex = rawBytes.indexOf(0);
-            const cleanBytes = nullIndex !== -1 ? rawBytes.subarray(0, nullIndex) : rawBytes;
+            const cleanBytes =
+              nullIndex !== -1 ? rawBytes.subarray(0, nullIndex) : rawBytes;
 
-            const decoder = new TextDecoder('windows-1251');
+            const decoder = new TextDecoder("windows-1251");
             const resultXml = decoder.decode(cleanBytes);
             return { path: "-", result: resultXml };
           } catch (err) {
             throw new Error(`Out parse error: ${err}`);
           } finally {
-            const kernel32 = koffi.load('kernel32.dll');
-            const LocalFree = kernel32.func('__stdcall', 'LocalFree', 'void *', ['void *']);
-            const result = LocalFree(rawAddr);
+            const kernel32 = koffi.load("kernel32.dll");
+            const LocalFree = kernel32.func(
+              "__stdcall",
+              "LocalFree",
+              "void *",
+              ["void *"],
+            );
+            const result = LocalFree(ptrAddres);
 
             if (result !== null) {
-              console.error('Memory free error', result);
+              console.error("Memory free error", result);
+            } else {
+              console.log("Memory cleared", result);
             }
           }
         }

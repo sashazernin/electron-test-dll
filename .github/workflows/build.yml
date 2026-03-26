@@ -23,6 +23,8 @@ jobs:
 
       - name: Build Electron App
         run: npm run dist
+        env:
+          CI: false
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

@@ -30,7 +30,8 @@
     "eject": "react-scripts eject",
     "electron": "electron .",
     "dev": "concurrently \"npm start\" \"npm run electron\"",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "postinstall": "node scripts/rebuild-winax.js"
   },
   "build": {
     "appId": "electron.test.dll",

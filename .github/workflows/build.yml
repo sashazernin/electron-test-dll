@@ -1,0 +1,41 @@
+name: Build Electron App
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install npm
+        uses: npm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Electron App
+        run: npm package:e
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release
+          tag_name: v${{ github.run_number }}
+          name: Release Build ${{ github.run_number }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
